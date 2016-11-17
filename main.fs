@@ -1,4 +1,4 @@
-type Value = TipoBool | TipoInt
+type Value = TmBool | TmNum
 
 type Operacao = 
   | OpSo   // Soma
@@ -13,8 +13,8 @@ type Operacao =
   | OpMai  // Maior ou igual
 
 type term =
-  | TipoInt    of int                    // n
-  | TipoBool   of bool                   // b
+  | TmNum    of int                    // n
+  | TmBool   of bool                   // b
   | TmOp       of term * term * Operacao // e1 op e2
   | TmIf       of term * term * term     // if e1 then e2 else e3
   | TmIdent    of string                 // x
@@ -26,21 +26,21 @@ type term =
 exception NoRuleApplies
 
 (* Funcao auxiliar para determinar se um termo e um VALOR NUMERICO *)
-let rec isValue t = 
+let rec isNumValue t = 
   match t with
-    | TipoInt(n)    -> true
-    | TipoBool(n)   -> true
-    | _             -> false
+    | TmNum(n)    -> true
+    | TmBool(n)   -> true
+    | _           -> false
 
 let toInt n =
   match n with
-    | TipoInt(n) -> n
-    | _          -> 0
+    | TmNum(n) -> n
+    | _        -> 0
 
 let toBool n =
   match n with
-    | TipoBool(b) -> b
-    | _           -> false
+    | TmBool(b) -> b
+    | _         -> false
 
 // { v/x } e | TODO
 let rec substitui x e v =
@@ -50,36 +50,36 @@ let rec substitui x e v =
 let rec step t = 
   match t with
     (* Op *)
-    | TmOp( e1,e2,e3 ) 
-        when isValue e1 && isValue e2 ->
-          match e3 with
-          | OpSo          -> TipoInt( (toInt e1) + (toInt e2) )
-          | OpSu     -> TipoInt( (toInt e1) - (toInt e2) )
-          | OpMu -> TipoInt( (toInt e1) * (toInt e2) )
-          | OpDi       -> TipoInt( (toInt e1) / (toInt e2) )
-          | OpMe         -> TipoBool( (toInt e1) <  (toInt e2) )
-          | OpMei  -> TipoBool( (toInt e1) <= (toInt e2) )
-          | OpIg         -> TipoBool( (toInt e1) =  (toInt e2) )
-          | OpDif     -> TipoBool( (toInt e1) <> (toInt e2) )
-          | OpMai  -> TipoBool( (toInt e1) >= (toInt e2) )
-          | OpMa         -> TipoBool( (toInt e1) >  (toInt e2) )
+    | TmOp( e1,e2,op ) 
+        when isNumValue e1 && isNumValue e2 ->
+          match op with
+          | OpSo  -> TmNum( (toInt e1) + (toInt e2) )
+          | OpSu  -> TmNum( (toInt e1) - (toInt e2) )
+          | OpMu  -> TmNum( (toInt e1) * (toInt e2) )
+          | OpDi  -> TmNum( (toInt e1) / (toInt e2) )
+          | OpMe  -> TmBool( (toInt e1) <  (toInt e2) )
+          | OpMei -> TmBool( (toInt e1) <= (toInt e2) )
+          | OpIg  -> TmBool( (toInt e1) =  (toInt e2) )
+          | OpDif -> TmBool( (toInt e1) <> (toInt e2) )
+          | OpMai -> TmBool( (toInt e1) >= (toInt e2) )
+          | OpMa  -> TmBool( (toInt e1) >  (toInt e2) )
 
-    | TmOp( e1,e2,e3 ) when isValue e1 ->                             // E-op2
-        let e2' = step e2 in TmOp( e1,e2',e3 ) 
+    | TmOp( e1,e2,op ) when isNumValue e1 ->                             // E-op2
+        let e2' = step e2 in TmOp( e1,e2',op ) 
 
-    | TmOp( e1,e2,e3 )                 ->                             // E-op1
-        let e1' = step e1 in TmOp( e1',e2,e3 )
+    | TmOp( e1,e2,op )                 ->                             // E-op1
+        let e1' = step e1 in TmOp( e1',e2,op )
 
     (* If *)
-    | TmIf( TipoBool(true), e2, e3 )   -> e2                          // E−IfTrue
-    | TmIf( TipoBool(false), e2, e3 )  -> e3                          // E−IfFalse
+    | TmIf( TmBool(true), e2, e3 )   -> e2                          // E−IfTrue
+    | TmIf( TmBool(false), e2, e3 )  -> e3                          // E−IfFalse
     | TmIf( e1, e2, e3 )               -> 
         let e1' = step e1 in TmIf( e1',e2,e3 )                        // E-if
     
     (* App *)
     | TmApp( TmFunc(x,e),v ) -> substitui x e v                       // E-Beta
 
-    | TmApp( e1,e2 ) when isValue e1   ->                             // E-App1
+    | TmApp( e1,e2 ) when isNumValue e1   ->                             // E-App1
         let e2' = step e2 in TmApp( e1,e2' )
     | TmApp( e1,e2 )                   ->                             // E-App1
         let e1' = step e1 in TmApp( e1',e2 )
@@ -99,29 +99,29 @@ let evalList list =
 
 // Tuple (input,expected output)
 let testes = [
-  TmOp(TipoInt 1,TipoInt 2 ,OpSo)          ,TipoInt(3);
-  TmOp(TipoInt 1,TipoInt 2 ,OpSo)          ,TipoInt(1);
-  TmOp(TipoInt 1,TipoInt 2 ,OpSu)     ,TipoInt(-1);
-  TmOp(TipoInt 2,TipoInt 2 ,OpMu) ,TipoInt(4);
-  TmOp(TipoInt 4,TipoInt 2 ,OpDi)       ,TipoInt(2);
-  TmOp(TipoInt 1,TipoInt 2 ,OpMe)         ,TipoBool(true);
-  TmOp(TipoInt 1,TipoInt 2 ,OpMei)  ,TipoBool(true);
-  TmOp(TipoInt 1,TipoInt 2 ,OpIg)         ,TipoBool(false);
-  TmOp(TipoInt 2,TipoInt 2 ,OpIg)         ,TipoBool(true);
-  TmOp(TipoInt 1,TipoInt 2 ,OpDif)     ,TipoBool(true);
-  TmOp(TipoInt 1,TipoInt 1 ,OpDif)     ,TipoBool(false);
-  TmOp(TipoInt 1,TipoInt 2 ,OpMai)  ,TipoBool(false);
-  TmOp(TipoInt 1,TipoInt 2 ,OpMa)         ,TipoBool(false);
-  TmIf( TipoBool(true),TmOp(TipoInt 1,TipoInt 2 ,OpSu),TipoInt(0) ),TipoInt(-1);
+  TmOp(TmNum 1,TmNum 2 ,OpSo)          ,TmNum(3);
+  TmOp(TmNum 1,TmNum 2 ,OpSo)          ,TmNum(1);
+  TmOp(TmNum 1,TmNum 2 ,OpSu)     ,TmNum(-1);
+  TmOp(TmNum 2,TmNum 2 ,OpMu) ,TmNum(4);
+  TmOp(TmNum 4,TmNum 2 ,OpDi)       ,TmNum(2);
+  TmOp(TmNum 1,TmNum 2 ,OpMe)         ,TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpMei)  ,TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpIg)         ,TmBool(false);
+  TmOp(TmNum 2,TmNum 2 ,OpIg)         ,TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpDif)     ,TmBool(true);
+  TmOp(TmNum 1,TmNum 1 ,OpDif)     ,TmBool(false);
+  TmOp(TmNum 1,TmNum 2 ,OpMai)  ,TmBool(false);
+  TmOp(TmNum 1,TmNum 2 ,OpMa)         ,TmBool(false);
+  TmIf( TmBool(true),TmOp(TmNum 1,TmNum 2 ,OpSu),TmNum(0) ),TmNum(-1);
   TmIdent("x"),TmIdent("x");
   // (1) (1 > 2) -> (1) (false)
-  TmApp( TipoInt(1), TmOp(TipoInt 1,TipoInt 2 ,OpMa) ),TmApp( TipoInt 1, TipoBool false );
+  TmApp( TmNum(1), TmOp(TmNum 1,TmNum 2 ,OpMa) ),TmApp( TmNum 1, TmBool false );
   // (1 < 2) (1 > 2) -> (true) (false)
-  TmApp( TmOp(TipoInt 1,TipoInt 2 ,OpMe), TmOp(TipoInt 1,TipoInt 2 ,OpMa) ),TmApp( TipoBool true, TipoBool false  );
+  TmApp( TmOp(TmNum 1,TmNum 2 ,OpMe), TmOp(TmNum 1,TmNum 2 ,OpMa) ),TmApp( TmBool true, TmBool false  );
   // (fn x => x + 1) (1) -> (2)
-  TmApp( TmFunc("x",TmOp(TmIdent("x"),TipoInt 1 ,OpSo)),TipoInt 1 ),TipoInt 2;
+  TmApp( TmFunc("x",TmOp(TmIdent("x"),TmNum 1 ,OpSo)),TmNum 1 ),TmNum 2;
   // fn x: => x + 1
-  //TmFunc("x",TmOp(TmIdent("x"),TipoInt(1) ,OpSo)),TipoInt(2); 
+  //TmFunc("x",TmOp(TmIdent("x"),TmNum(1) ,OpSo)),TmNum(2); 
 ]
   
 let prettyPrint list =

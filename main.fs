@@ -1,5 +1,8 @@
-type Value = TmBool | TmNum
-
+type Value = 
+  | TmBool 
+  | TmNum
+  | TmFun of Value * Value
+  | TmLst of Value
 
 type Operacao = 
   | OpSo   // Soma
@@ -13,45 +16,54 @@ type Operacao =
   | OpMa   // Maior 
   | OpMai  // Maior ou igual
 
-type Tipo =
-  | TmNum
-  | TmBool
-
 type term =
-  | TmNum    of int                      // n
-  | TmBool   of bool                     // b
-  | TmOp       of term * term * Operacao // e1 op e2
-  | TmIf       of term * term * term     // if e1 then e2 else e3
-  | TmIdent    of string                 // x
-  | TmApp      of term * term            // e1 e2
-  | TmFunc     of string * term          // fn x:T => e
+  | TmNum   of int                    // n
+  | TmBool  of bool                   // b
+  | TmOp    of term * term * Operacao // e1 op e2
+  | TmIf    of term * term * term     // if e1 then e2 else e3
+  | TmIdent of string                 // x
+  | TmApp   of term * term            // e1 e2  
+  | TmFunc  of string * term          // fn x:T => e | TODO: depende da substituição
+  | TmLet   of string * term * term   // let x = e1 in e2 | TODO: depende da substituição
+  | TmLetRec of string * Value * term * term  // let rec x:T1->T2 = e1 in e2 | TODO: depende da substituição
+  (* Execeções *)
+  | TmRaise                           // raise          | TODO: step
+  | TmTry   of term * term            // try e1 with e2 | TODO: step
+  (* Listas *)
+  | TmNil                             // []     | TODO: step
+  | TmCons of term * term             // e1::e2 | TODO: step
+  | TmHd of term                      // hd e1  | TODO: step
+  | TmTl of term                      // tl e1  | TODO: step
+
 
 (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
 exception NoRuleApplies
 
-(* Funcao auxiliar para determinar se um termo e um VALOR NUMERICO *)
-let isNumValue t = 
-  match t with
-    | TmNum(n)    -> true
-    | TmBool(n)   -> true
-    | _           -> false
+(* Funcao auxiliar para determinar se um termo e um valor numérico *)
+let isNum t = 
+  match t with 
+  | TmNum(n)  -> true 
+  | _ -> false
 
-(* Se termo corresponde ou não a um valor *)
+(* Se termo é ou não um valor *)
 let isValue t = 
-  (isNumValue t) || false
+  match t with
+  | TmNum(n)    -> true
+  | TmBool(n)   -> true
+  | _ -> false
 
 let toInt n =
   match n with
-    | TmNum(n) -> n
-    | _        -> 0
+  | TmNum(n) -> n
+  | _        -> 0
 
 let toBool n =
   match n with
-    | TmBool(b) -> b
-    | _         -> false
+  | TmBool(b) -> b
+  | _         -> false
 
 // { v/x } e | TODO
-let rec substitui x e v =
+let rec substituiLivres x e v =
   e
 
 (* Implementacao da funcao STEP de avaliacao em um passo *)
@@ -59,7 +71,7 @@ let rec step t =
   match t with
     (* Op *)
     | TmOp( e1,e2,op ) 
-        when isNumValue e1 && isNumValue e2 ->
+        when isNum e1 && isNum e2 ->
           match op with
           | OpSo  -> TmNum( (toInt e1) + (toInt e2) )
           | OpSu  -> TmNum( (toInt e1) - (toInt e2) )
@@ -72,24 +84,24 @@ let rec step t =
           | OpMai -> TmBool( (toInt e1) >= (toInt e2) )
           | OpMa  -> TmBool( (toInt e1) >  (toInt e2) )
 
-    | TmOp( e1,e2,op ) when isNumValue e1 ->                             // E-op2
+    | TmOp( e1,e2,op ) when isNum e1 ->
         let e2' = step e2 in TmOp( e1,e2',op ) 
 
-    | TmOp( e1,e2,op )                 ->                             // E-op1
+    | TmOp( e1,e2,op ) ->
         let e1' = step e1 in TmOp( e1',e2,op )
 
     (* If *)
-    | TmIf( TmBool(true), e2, e3 )   -> e2                          // E−IfTrue
-    | TmIf( TmBool(false), e2, e3 )  -> e3                          // E−IfFalse
-    | TmIf( e1, e2, e3 )               -> 
-        let e1' = step e1 in TmIf( e1',e2,e3 )                        // E-if
+    | TmIf( TmBool(true), e2, e3 ) -> e2
+    | TmIf( TmBool(false), e2, e3 ) -> e3
+    | TmIf( e1, e2, e3 ) -> 
+        let e1' = step e1 in TmIf( e1',e2,e3 )
     
     (* App *)
-    | TmApp( TmFunc(x,e),v ) -> substitui x e v                       // E-Beta
+    | TmApp( TmFunc(x,e),v ) -> substituiLivres x e v
 
-    | TmApp( e1,e2 ) when isValue e1   ->                             // E-App1
+    | TmApp( e1,e2 ) when isValue e1 ->
         let e2' = step e2 in TmApp( e1,e2' )
-    | TmApp( e1,e2 )                   ->                             // E-App1
+    | TmApp( e1,e2 ) ->
         let e1' = step e1 in TmApp( e1',e2 )
 
     | _ -> raise NoRuleApplies
@@ -107,19 +119,19 @@ let evalList list =
 
 // Tuple (input,expected output)
 let testes = [
-  TmOp(TmNum 1,TmNum 2 ,OpSo)          ,TmNum(3);
-  TmOp(TmNum -1,TmNum 2 ,OpSo)          ,TmNum(1);
-  TmOp(TmNum 1,TmNum 2 ,OpSu)     ,TmNum(-1);
-  TmOp(TmNum 2,TmNum 2 ,OpMu) ,TmNum(4);
-  TmOp(TmNum 4,TmNum 2 ,OpDi)       ,TmNum(2);
-  TmOp(TmNum 1,TmNum 2 ,OpMe)         ,TmBool(true);
-  TmOp(TmNum 1,TmNum 2 ,OpMei)  ,TmBool(true);
-  TmOp(TmNum 1,TmNum 2 ,OpIg)         ,TmBool(false);
-  TmOp(TmNum 2,TmNum 2 ,OpIg)         ,TmBool(true);
-  TmOp(TmNum 1,TmNum 2 ,OpDif)     ,TmBool(true);
-  TmOp(TmNum 1,TmNum 1 ,OpDif)     ,TmBool(false);
-  TmOp(TmNum 1,TmNum 2 ,OpMai)  ,TmBool(false);
-  TmOp(TmNum 1,TmNum 2 ,OpMa)         ,TmBool(false);
+  TmOp(TmNum 1,TmNum 2 ,OpSo),TmNum(3);
+  TmOp(TmNum -1,TmNum 2 ,OpSo),TmNum(1);
+  TmOp(TmNum 1,TmNum 2 ,OpSu),TmNum(-1);
+  TmOp(TmNum 2,TmNum 2 ,OpMu),TmNum(4);
+  TmOp(TmNum 4,TmNum 2 ,OpDi),TmNum(2);
+  TmOp(TmNum 1,TmNum 2 ,OpMe),TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpMei),TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpIg),TmBool(false);
+  TmOp(TmNum 2,TmNum 2 ,OpIg),TmBool(true);
+  TmOp(TmNum 1,TmNum 2 ,OpDif),TmBool(true);
+  TmOp(TmNum 1,TmNum 1 ,OpDif),TmBool(false);
+  TmOp(TmNum 1,TmNum 2 ,OpMai),TmBool(false);
+  TmOp(TmNum 1,TmNum 2 ,OpMa),TmBool(false);
   TmIf( TmBool(true),TmOp(TmNum 1,TmNum 2 ,OpSu),TmNum(0) ),TmNum(-1);
   TmIdent("x"),TmIdent("x");
   // (1) (1 > 2) -> (1) (false)

@@ -1,5 +1,6 @@
 type Value = TmBool | TmNum
 
+
 type Operacao = 
   | OpSo   // Soma
   | OpSu   // Subtração
@@ -12,25 +13,32 @@ type Operacao =
   | OpMa   // Maior 
   | OpMai  // Maior ou igual
 
+type Tipo =
+  | TmNum
+  | TmBool
+
 type term =
-  | TmNum    of int                    // n
-  | TmBool   of bool                   // b
+  | TmNum    of int                      // n
+  | TmBool   of bool                     // b
   | TmOp       of term * term * Operacao // e1 op e2
   | TmIf       of term * term * term     // if e1 then e2 else e3
   | TmIdent    of string                 // x
   | TmApp      of term * term            // e1 e2
   | TmFunc     of string * term          // fn x:T => e
 
-
 (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
 exception NoRuleApplies
 
 (* Funcao auxiliar para determinar se um termo e um VALOR NUMERICO *)
-let rec isNumValue t = 
+let isNumValue t = 
   match t with
     | TmNum(n)    -> true
     | TmBool(n)   -> true
     | _           -> false
+
+(* Se termo corresponde ou não a um valor *)
+let isValue t = 
+  (isNumValue t) || false
 
 let toInt n =
   match n with
@@ -79,7 +87,7 @@ let rec step t =
     (* App *)
     | TmApp( TmFunc(x,e),v ) -> substitui x e v                       // E-Beta
 
-    | TmApp( e1,e2 ) when isNumValue e1   ->                             // E-App1
+    | TmApp( e1,e2 ) when isValue e1   ->                             // E-App1
         let e2' = step e2 in TmApp( e1,e2' )
     | TmApp( e1,e2 )                   ->                             // E-App1
         let e1' = step e1 in TmApp( e1',e2 )
@@ -100,7 +108,7 @@ let evalList list =
 // Tuple (input,expected output)
 let testes = [
   TmOp(TmNum 1,TmNum 2 ,OpSo)          ,TmNum(3);
-  TmOp(TmNum 1,TmNum 2 ,OpSo)          ,TmNum(1);
+  TmOp(TmNum -1,TmNum 2 ,OpSo)          ,TmNum(1);
   TmOp(TmNum 1,TmNum 2 ,OpSu)     ,TmNum(-1);
   TmOp(TmNum 2,TmNum 2 ,OpMu) ,TmNum(4);
   TmOp(TmNum 4,TmNum 2 ,OpDi)       ,TmNum(2);

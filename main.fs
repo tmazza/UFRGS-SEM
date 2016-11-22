@@ -24,8 +24,8 @@ type term =
   | TmIdent of string                 // x
   | TmApp   of term * term            // e1 e2  
   | TmFunc  of string * term          // fn x:T => e
-  | TmLet   of string * term * term   // let x = e1 in e2 | TODO: substituição
-  | TmLetRec of string * Value * term * term  // let rec x:T1->T2 = e1 in e2 | TODO: substituição
+  | TmLet   of string * term * term   // let x = e1 in e2
+  | TmLetRec of string * term * term  // let rec f:T1->T2 = e1 in e2
   (* Execeções *)
   | TmRaise                           // raise          | TODO: step
   | TmTry   of term * term            // try e1 with e2 | TODO: step
@@ -69,8 +69,12 @@ let rec subFree v x e =
   | TmOp( e1,e2,op ) -> TmOp(subFree v x e1,subFree v x e2, op)
   | TmApp( e1,e2 ) -> TmApp(subFree v x e1,subFree v x e2)
   | TmFunc( y,e1 ) when not(x = (TmIdent y)) -> TmFunc( y,subFree v x e1)
-  | TmLet( y,e1,e2 ) when x = (TmIdent y) -> TmLet( y,subFree v x e1, e2)
-  | TmLet( y,e1,e2 ) when not(x = (TmIdent y)) -> TmLet( y,subFree v x e1, subFree v x e2)
+  | TmLet( y,e1,e2 ) when x = (TmIdent y) 
+      -> TmLet( y,subFree v x e1, e2)
+  | TmLet( y,e1,e2 ) when not(x = (TmIdent y)) 
+      -> TmLet( y,subFree v x e1, subFree v x e2)
+  | TmLetRec( f, TmFunc( y, e1), e2) when not(x = TmIdent f) 
+      -> TmLetRec( f, subFree v x (TmFunc( y, e1)), subFree v x e2)
   | _ -> if x = e then v else e
 
 (* Implementacao da funcao STEP de avaliacao em um passo *)
@@ -119,6 +123,10 @@ let rec step t =
 
     | TmLet( x,e1,e2 ) ->
         let e1' = step e1 in TmLet( x,e1',e2 )
+
+    (* Let rec *)
+    | TmLetRec( f, TmFunc( y, e1), e2) 
+        -> subFree (TmFunc( y, TmLetRec( f,TmFunc( y,e1 ),e1 ) )) (TmIdent f) e2
 
     (* NoRuleApplies *)
     | _ -> raise NoRuleApplies
@@ -204,8 +212,21 @@ let testes = [
   // (let x = 4 - 2 in x + 2) -> (4)
   TmLet("x",TmOp(TmNum(4),TmNum(2),OpSu), TmOp(TmIdent("x"),TmNum(2),OpSo)),TmNum(4);
   
-  (* Testes substituição (subFree) *) // TODO: separar testes de substituição
-  
+  // let rec simple = fn x => x in simple(1)
+  TmLetRec("simple", TmFunc( "x", TmIdent("x") ),TmApp(TmIdent("simple"),TmNum(1))),TmNum(1);
+
+  // let rec fat = fn x => if x=0 then 1 else x * fat(x-1) in fat(5) // fatorial
+  TmLetRec("fat", TmFunc( "x", TmIf(
+                              TmOp( TmIdent("x"),TmNum(0),OpIg ),
+                              TmNum(1),
+                              TmOp( 
+                                TmIdent("x"),
+                                TmApp( TmIdent("fat"),TmOp( TmIdent("x"),TmNum(1),OpSu ) ),
+                                OpMu 
+                              )
+  )),TmApp(TmIdent("fat"),TmNum(5))),TmNum(120);
+
+  (* Testes substituição (subFree) *) // TODO: separar os testes de substituição
   (** Teste: {e/x}n -> n 
     (fn x:T => 1) (2) **)
   TmApp( TmFunc("x", TmNum(1)), TmNum(2)),TmNum(1);
@@ -270,7 +291,7 @@ let prettyPrint list =
     if (snd (fst x) = snd x) then 
       printf "\n\tpass | %A -> %A" (fst (fst x)) (snd (fst x))
     else 
-      printf "\n\tfail | test: %A | output: %A insted of %A " (fst (fst x)) (snd (fst x)) (snd x)
+      printf "\n\tfail * test: %A | output: %A insted of %A " (fst (fst x)) (snd (fst x)) (snd x)
   ) list
 
 let r = prettyPrint (evalList testes)

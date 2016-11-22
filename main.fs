@@ -131,20 +131,35 @@ let evalList list =
 
 // Tuple (input,expected output)
 let testes = [
+  // (1 + 2) -> (3)
   TmOp(TmNum 1,TmNum 2 ,OpSo),TmNum(3);
+  // (-1 + 2) -> (1)
   TmOp(TmNum -1,TmNum 2 ,OpSo),TmNum(1);
+  // (1 - 2) -> (-1)
   TmOp(TmNum 1,TmNum 2 ,OpSu),TmNum(-1);
+  // (2 * 2) -> (4)
   TmOp(TmNum 2,TmNum 2 ,OpMu),TmNum(4);
+  // (4 / 2) -> (2)
   TmOp(TmNum 4,TmNum 2 ,OpDi),TmNum(2);
+  // (1 < 2) -> (True)
   TmOp(TmNum 1,TmNum 2 ,OpMe),TmBool(true);
+  // (1 <= 2) -> (True)
   TmOp(TmNum 1,TmNum 2 ,OpMei),TmBool(true);
+  // (1 == 2) -> (False)
   TmOp(TmNum 1,TmNum 2 ,OpIg),TmBool(false);
+  // (2 == 2) -> (True)
   TmOp(TmNum 2,TmNum 2 ,OpIg),TmBool(true);
+  // (1 <> 2) -> (True)
   TmOp(TmNum 1,TmNum 2 ,OpDif),TmBool(true);
+  // (1 <> 1) -> (False)
   TmOp(TmNum 1,TmNum 1 ,OpDif),TmBool(false);
+  // (1 >= 2) -> (False)
   TmOp(TmNum 1,TmNum 2 ,OpMai),TmBool(false);
+  // (1 > 2) -> (False)
   TmOp(TmNum 1,TmNum 2 ,OpMa),TmBool(false);
+  // (if True then 1-2 else 0) -> (-1)
   TmIf( TmBool(true),TmOp(TmNum 1,TmNum 2 ,OpSu),TmNum(0) ),TmNum(-1);
+  // (x) -> (x)
   TmIdent("x"),TmIdent("x");
   // (1) (1 > 2) -> (1) (false)
   TmApp( TmNum(1), TmOp(TmNum 1,TmNum 2 ,OpMa) ),TmApp( TmNum 1, TmBool false );

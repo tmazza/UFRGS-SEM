@@ -23,9 +23,9 @@ type term =
   | TmIf    of term * term * term     // if e1 then e2 else e3
   | TmIdent of string                 // x
   | TmApp   of term * term            // e1 e2  
-  | TmFunc  of string * term          // fn x:T => e | TODO: depende da substituição
-  | TmLet   of string * term * term   // let x = e1 in e2 | TODO: depende da substituição
-  | TmLetRec of string * Value * term * term  // let rec x:T1->T2 = e1 in e2 | TODO: depende da substituição
+  | TmFunc  of string * term          // fn x:T => e
+  | TmLet   of string * term * term   // let x = e1 in e2 | TODO: substituição
+  | TmLetRec of string * Value * term * term  // let rec x:T1->T2 = e1 in e2 | TODO: substituição
   (* Execeções *)
   | TmRaise                           // raise          | TODO: step
   | TmTry   of term * term            // try e1 with e2 | TODO: step
@@ -63,8 +63,10 @@ let toBool n =
   | _         -> false
 
 // { v/x } e | TODO
-let rec substituiLivres x e v =
-  e
+let rec subFree v x e =
+  match e with 
+  | TmOp( e1,e2,op ) -> TmOp(subFree v x e1,subFree v x e2, op)
+  | _ -> if x = e then v else e
 
 (* Implementacao da funcao STEP de avaliacao em um passo *)
 let rec step t = 
@@ -92,18 +94,28 @@ let rec step t =
 
     (* If *)
     | TmIf( TmBool(true), e2, e3 ) -> e2
+
     | TmIf( TmBool(false), e2, e3 ) -> e3
+
     | TmIf( e1, e2, e3 ) -> 
         let e1' = step e1 in TmIf( e1',e2,e3 )
     
     (* App *)
-    | TmApp( TmFunc(x,e),v ) -> substituiLivres x e v
+    | TmApp( TmFunc(x,e),v ) -> subFree v (TmIdent x) e
 
     | TmApp( e1,e2 ) when isValue e1 ->
         let e2' = step e2 in TmApp( e1,e2' )
+
     | TmApp( e1,e2 ) ->
         let e1' = step e1 in TmApp( e1',e2 )
 
+    (* Let *)
+    | TmLet( x,e1,e2 ) when isValue e1 -> subFree e1 (TmIdent x) e2
+
+    | TmLet( x,e1,e2 ) ->
+        let e1' = step e1 in TmLet( x,e1',e2 )
+
+    (* NoRuleApplies *)
     | _ -> raise NoRuleApplies
 
 (* Implementacao de EVAL *)
@@ -138,10 +150,16 @@ let testes = [
   TmApp( TmNum(1), TmOp(TmNum 1,TmNum 2 ,OpMa) ),TmApp( TmNum 1, TmBool false );
   // (1 < 2) (1 > 2) -> (true) (false)
   TmApp( TmOp(TmNum 1,TmNum 2 ,OpMe), TmOp(TmNum 1,TmNum 2 ,OpMa) ),TmApp( TmBool true, TmBool false  );
-  // (fn x => x + 1) (1) -> (2)
+  // (fn x:T => x) (1) -> (1)
+  TmApp( TmFunc("x",TmIdent("x")),TmNum 1 ),TmNum 1;
+  // (fn x:T => x + 1) (1) -> (2)
   TmApp( TmFunc("x",TmOp(TmIdent("x"),TmNum 1 ,OpSo)),TmNum 1 ),TmNum 2;
-  // fn x: => x + 1
-  //TmFunc("x",TmOp(TmIdent("x"),TmNum(1) ,OpSo)),TmNum(2); 
+  // (fn x:T => x + 1) -> (fn x:T => x + 1)
+  TmFunc("x",TmOp(TmIdent("x"),TmNum(1) ,OpSo)),TmFunc("x",TmOp(TmIdent("x"),TmNum(1) ,OpSo)); 
+  // (let x = 1 in x + 2) -> (3)
+  TmLet("x",TmNum(1), TmOp(TmIdent("x"),TmNum(2),OpSo)),TmNum(3);
+  // (let x = 4 - 2 in x + 2) -> (4)
+  TmLet("x",TmOp(TmNum(4),TmNum(2),OpSu), TmOp(TmIdent("x"),TmNum(2),OpSo)),TmNum(4);
 ]
   
 let prettyPrint list =

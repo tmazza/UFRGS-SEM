@@ -279,10 +279,25 @@ let testes = [
     (fn x:T => (let y:T => x + 3 in x)) (2) **) // x é livre em e2
   TmApp( TmFunc("x", TmLet("y",TmOp(TmIdent("x"),TmNum(3),OpSo),TmIdent("x"))), TmNum(2)),TmNum(2);
 
-  (** TODO Teste: {e/f}(let rec f:T->T=(fn y:T => e1) in e2) -> (let rec f:T->T=(fn y:T => e1) in e2) 
-  **) // f presso, nada é alterado
-  (** TODO Teste: {e/x}(let rec f:T->T=(fn y:T => e1) in e2 -> (let rec f:T->T={e/x}(fn y:T => e1) in {e/x}e2 
-  **) // quado x != y
+  (** Teste: {e/f}(let rec f:T->T=(fn y:T => e1) in e2) -> (let rec f:T->T=(fn y:T => e1) in e2) 
+  (fn f:T => (let rec f = fn x => x) (2) **) // f presso, nada é alterado. Valor 2 é desconsiderado
+  TmApp( TmFunc("f", 
+            TmLetRec("f", TmFunc( "x", TmIdent("x") ),TmApp(TmIdent("f"),TmNum(1)))
+  ), TmNum(2)),TmNum(1);
+
+  (** Teste: {e/x}(let rec f:T->T=(fn y:T => e1) in e2 -> (let rec f:T->T={e/x}(fn y:T => e1) in {e/x}e2 
+  let rec fat = fn y => if y-x=0 then 1 else y * fat(y-1) in fat(6-x) **) // aplica substituição quado x != f
+  TmApp( TmFunc("x", 
+          TmLetRec("f", TmFunc( "y", TmIf(
+                                    TmOp( TmIdent("y"),TmNum(0),OpIg ),
+                                    TmNum(1),
+                                    TmOp( 
+                                      TmIdent("y"),
+                                      TmApp( TmIdent("f"),TmOp( TmIdent("y"),TmNum(1),OpSu ) ),
+                                      OpMu 
+                                    )
+          )),TmApp(TmIdent("f"),TmOp( TmNum(6),TmIdent("x"),OpSu )))
+  ), TmNum(1)),TmNum(120);
   
 ]
   
@@ -291,7 +306,7 @@ let prettyPrint list =
     if (snd (fst x) = snd x) then 
       printf "\n\tpass | %A -> %A" (fst (fst x)) (snd (fst x))
     else 
-      printf "\n\tfail * test: %A | output: %A insted of %A " (fst (fst x)) (snd (fst x)) (snd x)
+      printf "\n***fail | test: %A | output: %A insted of %A " (fst (fst x)) (snd (fst x)) (snd x)
   ) list
 
 let r = prettyPrint (evalList testes)

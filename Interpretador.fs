@@ -138,8 +138,8 @@ module Avaliador =
           -> subFree (TmFunc( y, TmLetRec( f,TmFunc( y,e1 ),e1 ) )) (TmIdent f) e2
 
       (* try-with *)
-      | TmTry( e1,e2 ) when isValue e1 -> e1
       | TmTry( TmRaise,e2 ) -> e2
+      | TmTry( e1,e2 ) when isValue e1 -> e1
       | TmTry( e1,e2 ) ->
           let e1' = step e1 in TmTry( e1',e2 )
 
@@ -270,6 +270,18 @@ module Testes =
 
     // let rec simple = fn x => x in raise
     TmLetRec("simple", TmFunc( "x", TmIdent("x") ),TmRaise),TmRaise;
+
+    // try if true then 1 else 2 with 5 -> 1
+    TmTry( TmIf( TmBool(true),TmNum(1),TmNum(2) ),TmNum(5) ),TmNum(1);
+    
+    // try if true then raise else 2 with 5 -> 5
+    TmTry( TmIf( TmBool(true),TmRaise,TmNum(2) ),TmNum(5) ),TmNum(5);
+
+    // try 1 else 2 with 5 -> 1
+    TmTry( TmNum(1),TmNum(5) ),TmNum(1);
+
+    // try 1 else 2 with raise -> 1
+    TmTry( TmNum(1),TmRaise ),TmNum(1);
 
     (******* Testes substituição (subFree) *******) // TODO: separar os testes de substituição
     (** Teste: {e/x}n -> n 

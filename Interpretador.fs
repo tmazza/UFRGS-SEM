@@ -36,7 +36,7 @@ module Gramatica =
     | TmIsEmp of term                   // isempty e1  | TODO: step
     | TmHd of term                      // hd e1  | TODO: step
     | TmTl of term                      // tl e1  | TODO: step
-    (* Execeções *)
+    (* Exceções *)
     | TmRaise                           // raise
     | TmTry of term * term              // try e1 with e2
 
@@ -136,6 +136,12 @@ module Avaliador =
       | TmLetRec( f,TmFunc( y, e1),TmRaise ) -> TmRaise
       | TmLetRec( f,TmFunc( y, e1),e2) 
           -> subFree (TmFunc( y, TmLetRec( f,TmFunc( y,e1 ),e1 ) )) (TmIdent f) e2
+
+      (* try-with *)
+      | TmTry( e1,e2 ) when isValue e1 -> e1
+      | TmTry( TmRaise,e2 ) -> e2
+      | TmTry( e1,e2 ) ->
+          let e1' = step e1 in TmTry( e1',e2 )
 
       (* NoRuleApplies *)
       | _ -> raise NoRuleApplies

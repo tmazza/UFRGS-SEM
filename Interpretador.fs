@@ -21,23 +21,24 @@ module Gramatica =
     | OpMai  // Maior ou igual
 
   type term =
-    | TmNum   of int                    // n
-    | TmBool  of bool                   // b
-    | TmOp    of term * term * Operacao // e1 op e2
-    | TmIf    of term * term * term     // if e1 then e2 else e3
+    | TmNum of int                      // n
+    | TmBool of bool                    // b
+    | TmOp of term * term * Operacao    // e1 op e2
+    | TmIf of term * term * term        // if e1 then e2 else e3
     | TmIdent of string                 // x
-    | TmApp   of term * term            // e1 e2  
-    | TmFunc  of string * term          // fn x:T => e
-    | TmLet   of string * term * term   // let x = e1 in e2
+    | TmApp of term * term              // e1 e2  
+    | TmFunc of string * term           // fn x:T => e
+    | TmLet of string * term * term     // let x = e1 in e2
     | TmLetRec of string * term * term  // let rec f:T1->T2 = e1 in e2
-    (* Execeções *)
-    | TmRaise                           // raise          | TODO: step
-    | TmTry   of term * term            // try e1 with e2 | TODO: step
     (* Listas *)
     | TmNil                             // []     | TODO: step
     | TmCons of term * term             // e1::e2 | TODO: step
+    | TmIsEmp of term                   // isempty e1  | TODO: step
     | TmHd of term                      // hd e1  | TODO: step
     | TmTl of term                      // tl e1  | TODO: step
+    (* Execeções *)
+    | TmRaise                           // raise          | TODO: step
+    | TmTry of term * term              // try e1 with e2 | TODO: step
 
   (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
   exception NoRuleApplies
@@ -101,44 +102,44 @@ module Avaliador =
             | OpDif -> TmBool( (toInt e1) <> (toInt e2) )
             | OpMai -> TmBool( (toInt e1) >= (toInt e2) )
             | OpMa  -> TmBool( (toInt e1) >  (toInt e2) )
-
       | TmOp( e1,e2,op ) when isNum e1 ->
           let e2' = step e2 in TmOp( e1,e2',op ) 
-
       | TmOp( e1,e2,op ) ->
           let e1' = step e1 in TmOp( e1',e2,op )
+      | TmOp( TmRaise,e2,op ) -> TmRaise
+      | TmOp( e1,TmRaise,op ) -> TmRaise
 
       (* If *)
-      | TmIf( TmBool(true), e2, e3 ) -> e2
-
-      | TmIf( TmBool(false), e2, e3 ) -> e3
-
+      | TmIf( TmBool(true),e2,e3 ) -> e2
+      | TmIf( TmBool(false),e2,e3 ) -> e3
+      | TmIf( TmRaise,e2,e3 ) -> TmRaise
       | TmIf( e1, e2, e3 ) -> 
           let e1' = step e1 in TmIf( e1',e2,e3 )
       
       (* App *)
       | TmApp( TmFunc(x,e),v ) -> subFree v (TmIdent x) e
-
+      | TmApp( TmRaise,e2 ) -> TmRaise
+      | TmApp( e1,TmRaise ) when isValue e1 -> TmRaise
       | TmApp( e1,e2 ) when isValue e1 ->
           let e2' = step e2 in TmApp( e1,e2' )
-
       | TmApp( e1,e2 ) ->
           let e1' = step e1 in TmApp( e1',e2 )
-
+      
       (* Let *)
       | TmLet( x,e1,e2 ) when isValue e1 -> subFree e1 (TmIdent x) e2
-
+      | TmLet( x,e1,TmRaise ) -> TmRaise
       | TmLet( x,e1,e2 ) ->
           let e1' = step e1 in TmLet( x,e1',e2 )
 
       (* Let rec *)
-      | TmLetRec( f, TmFunc( y, e1), e2) 
+      | TmLetRec( f,TmFunc( y, e1),TmRaise ) -> TmRaise
+      | TmLetRec( f,TmFunc( y, e1),e2) 
           -> subFree (TmFunc( y, TmLetRec( f,TmFunc( y,e1 ),e1 ) )) (TmIdent f) e2
 
       (* NoRuleApplies *)
       | _ -> raise NoRuleApplies
 
-  (* Implementacao de EVAL *)
+  (* Implementacao de eval *)
   let rec eval t =
     try let t' = step t
         in eval t'

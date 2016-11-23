@@ -98,8 +98,8 @@ module Avaliador =
             | OpSo  -> TmNum( (toInt e1) + (toInt e2) )
             | OpSu  -> TmNum( (toInt e1) - (toInt e2) )
             | OpMu  -> TmNum( (toInt e1) * (toInt e2) )
-            | OpDi  -> TmNum( (toInt e1) / (toInt e2) )
             | OpDi when (toInt e2 = 0) -> TmRaise
+            | OpDi  -> TmNum( (toInt e1) / (toInt e2) )
             | OpMe  -> TmBool( (toInt e1) <  (toInt e2) )
             | OpMei -> TmBool( (toInt e1) <= (toInt e2) )
             | OpIg  -> TmBool( (toInt e1) =  (toInt e2) )
@@ -179,6 +179,9 @@ module Testes =
     
     // (4 / 2) -> (2)
     TmOp(TmNum 4,TmNum 2 ,OpDi),TmNum(2);
+
+    // (4 / 0) -> TmRaise
+    TmOp(TmNum 4,TmNum 0 ,OpDi),TmRaise;
     
     // (1 < 2) -> (True)
     TmOp(TmNum 1,TmNum 2 ,OpMe),TmBool(true);

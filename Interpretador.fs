@@ -37,8 +37,8 @@ module Gramatica =
     | TmHd of term                      // hd e1  | TODO: step
     | TmTl of term                      // tl e1  | TODO: step
     (* Execeções *)
-    | TmRaise                           // raise          | TODO: step
-    | TmTry of term * term              // try e1 with e2 | TODO: step
+    | TmRaise                           // raise
+    | TmTry of term * term              // try e1 with e2
 
   (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
   exception NoRuleApplies
@@ -56,8 +56,9 @@ module Avaliador =
   (* Se termo é ou não um valor *)
   let isValue t = 
     match t with
-    | TmNum(n)    -> true
-    | TmBool(n)   -> true
+    | TmNum(n)  -> true
+    | TmBool(n) -> true
+    | TmRaise   -> true
     | _ -> false
 
   let toInt n =
@@ -89,6 +90,8 @@ module Avaliador =
   let rec step t = 
     match t with
       (* Op *)
+      | TmOp( TmRaise,e2,op ) -> TmRaise
+      | TmOp( e1,TmRaise,op ) -> TmRaise
       | TmOp( e1,e2,op ) 
           when isNum e1 && isNum e2 ->
             match op with
@@ -106,8 +109,6 @@ module Avaliador =
           let e2' = step e2 in TmOp( e1,e2',op ) 
       | TmOp( e1,e2,op ) ->
           let e1' = step e1 in TmOp( e1',e2,op )
-      | TmOp( TmRaise,e2,op ) -> TmRaise
-      | TmOp( e1,TmRaise,op ) -> TmRaise
 
       (* If *)
       | TmIf( TmBool(true),e2,e3 ) -> e2
@@ -153,7 +154,7 @@ module Testes =
   let evalList list =
     List.map (fun x-> (fst x,Avaliador.eval (fst x)),(snd x) ) list
 
-  // Tuple (input,expected output)
+  // Lista de pares (entrada,saida esperada)
   let testes = [
     (* TESTES STEP *)
     
@@ -237,7 +238,34 @@ module Testes =
                                 )
     )),TmApp(TmIdent("fat"),TmNum(5))),TmNum(120);
 
-    (* Testes substituição (subFree) *) // TODO: separar os testes de substituição
+    // raise + 1 -> raise
+    TmOp( TmRaise,TmNum(1),OpSo ),TmRaise;
+
+    // 1 + raise -> raise
+    TmOp( TmNum(1),TmRaise,OpSo ),TmRaise;
+
+    // if raise then 1 else 2 -> raise
+    TmIf( TmRaise,TmNum(1),TmNum(2) ),TmRaise;
+
+    // (fn x:T => x) (raise) -> (raise)
+    TmApp( TmFunc("x",TmIdent("x")),TmRaise ),TmRaise;
+
+    // (raise) (2) -> (raise)
+    TmApp( TmRaise, TmNum(2) ),TmRaise;
+
+    // (let x = 1 in raise) -> raise
+    TmLet("x",TmNum(1), TmRaise),TmRaise;
+    
+    // (let x = raise in 1) -> raise // x não ocorre em e1
+    TmLet("x",TmRaise, TmNum(1)),TmNum(1);
+
+    // (let x = raise in x) -> raise // x ocorre em e1
+    TmLet("x",TmRaise, TmIdent("x")),TmRaise;
+
+    // let rec simple = fn x => x in raise
+    TmLetRec("simple", TmFunc( "x", TmIdent("x") ),TmRaise),TmRaise;
+
+    (******* Testes substituição (subFree) *******) // TODO: separar os testes de substituição
     (** Teste: {e/x}n -> n 
       (fn x:T => 1) (2) **)
     TmApp( TmFunc("x", TmNum(1)), TmNum(2)),TmNum(1);
@@ -311,7 +339,7 @@ module Testes =
     ), TmNum(1)),TmNum(120);
     
   ]
-    
+  
   let prettyPrint list =
     List.map (fun x->
       if (snd (fst x) = snd x) then 

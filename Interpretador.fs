@@ -99,6 +99,7 @@ module Avaliador =
             | OpSu  -> TmNum( (toInt e1) - (toInt e2) )
             | OpMu  -> TmNum( (toInt e1) * (toInt e2) )
             | OpDi  -> TmNum( (toInt e1) / (toInt e2) )
+            | OpDi when (toInt e2 = 0) -> TmRaise
             | OpMe  -> TmBool( (toInt e1) <  (toInt e2) )
             | OpMei -> TmBool( (toInt e1) <= (toInt e2) )
             | OpIg  -> TmBool( (toInt e1) =  (toInt e2) )

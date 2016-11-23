@@ -31,14 +31,14 @@ module Gramatica =
     | TmLet of string * term * term     // let x = e1 in e2
     | TmLetRec of string * term * term  // let rec f:T1->T2 = e1 in e2
     (* Listas *)
-    | TmNil                             // []     | TODO: step
-    | TmCons of term * term             // e1::e2 | TODO: step
-    | TmIsEmp of term                   // isempty e1  | TODO: step
-    | TmHd of term                      // hd e1  | TODO: step
-    | TmTl of term                      // tl e1  | TODO: step
+    | TmNil                             // [] | TODO: regras de substituioção
+    | TmCons of term * term             // e1::e2 | TODO: regras de substituioção
+    | TmIsEmp of term                   // isempty e1 | TODO: regras de substituioção
+    | TmHd of term                      // hd e1 | TODO: regras de substituioção
+    | TmTl of term                      // tl e1 | TODO: regras de substituioção
     (* Exceções *)
-    | TmRaise                           // raise
-    | TmTry of term * term              // try e1 with e2
+    | TmRaise                           // raise | TODO: regras de substituioção
+    | TmTry of term * term              // try e1 with e2 | TODO: regras de substituioção
 
   (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
   exception NoRuleApplies
@@ -59,6 +59,7 @@ module Avaliador =
     | TmNum(n)  -> true
     | TmBool(n) -> true
     | TmRaise   -> true
+    | TmNil     -> true
     | _ -> false
 
   let toInt n =
@@ -143,6 +144,15 @@ module Avaliador =
       | TmTry( e1,e2 ) when isValue e1 -> e1
       | TmTry( e1,e2 ) ->
           let e1' = step e1 in TmTry( e1',e2 )
+
+      (* Listar *)
+      | TmIsEmp( TmNil ) -> TmBool(true)
+      | TmIsEmp( e1 ) -> TmBool(false)
+      | TmHd( TmNil ) -> TmNil
+      | TmHd( TmCons( e1,e2 ) ) -> e1
+      | TmTl( TmNil ) -> TmNil
+      | TmTl( TmCons( e1,e2 ) ) when isValue e2 -> e1
+      | TmTl( TmCons( e1,e2 ) ) -> TmTl( e2 )
 
       (* NoRuleApplies *)
       | _ -> raise NoRuleApplies
@@ -286,6 +296,44 @@ module Testes =
 
     // try 1 else 2 with raise -> 1
     TmTry( TmNum(1),TmRaise ),TmNum(1);
+
+    // 1::nil -> 1::nil
+    TmCons( TmNum(1),TmNil ),TmCons( TmNum(1),TmNil );
+
+    // (fn x => x + 1)::1::nil -> (fn x => x + 1)::1::nil
+    TmCons( 
+      TmFunc( "x",TmOp( TmIdent("x"),TmNum(1),OpSo ) ), 
+      TmCons( TmNum(1),TmNil )),
+    TmCons( TmFunc( "x",TmOp( TmIdent("x"),TmNum(1),OpSo ) ), TmCons( TmNum(1),TmNil ));
+
+    // isEmpty nil -> true
+    TmIsEmp( TmNil ),TmBool(true);
+
+    // isEmpty 1::nil -> false
+    TmIsEmp( TmCons( TmNum(1),TmNil ) ),TmBool(false);
+
+    // hd nil -> nil
+    TmHd( TmNil ), TmNil;
+
+    // hd 1::nil -> 1
+    TmHd( TmCons( TmNum(1),TmNil ) ), TmNum(1);
+
+    // hd (fn x => x + 1)::1::nil -> (fn x => x + 1)
+    TmHd( TmCons( TmFunc( "x",TmOp( TmIdent("x"),TmNum(1),OpSo ) ), TmCons( TmNum(1),TmNil )) )
+    ,TmFunc( "x",TmOp( TmIdent("x"),TmNum(1),OpSo ) );
+
+    // tl nil -> nil
+    TmTl( TmNil ), TmNil;
+
+    // tl 1::nil -> 1
+    TmTl( TmCons( TmNum(1),TmNil ) ), TmNum(1);
+
+    // tl (fn x => x + 1)::1::nil -> (fn x => x + 1)
+    TmTl( TmCons( TmFunc( "x",TmOp( TmIdent("x"),TmNum(1),OpSo ) ), TmCons( TmNum(1),TmNil )) )
+    ,TmNum(1);
+
+    // tl 1::2::3::nil -> 3
+    TmTl( TmCons( TmNum(1),TmCons( TmNum(2),TmCons( TmNum(3),TmNil ) ) ) ), TmNum(3);
 
     (******* Testes substituição (subFree) *******) // TODO: separar os testes de substituição
     (** Teste: {e/x}n -> n 

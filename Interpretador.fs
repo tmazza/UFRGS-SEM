@@ -167,7 +167,7 @@ module Avaliador =
 
       (* Listas *)
       | TmIsEmp( TmNil ) -> TmBool(true)
-      | TmIsEmp( e1 ) -> TmBool(false) // TODO: testar se a expressão é TmCons
+      | TmIsEmp( TmCons( e1,e2) ) -> TmBool(false)
       | TmHd( TmNil ) -> TmNil
       | TmHd( TmCons( e1,e2 ) ) -> e1
       | TmTl( TmNil ) -> TmNil
@@ -332,6 +332,9 @@ module Testes =
 
     // isEmpty 1::nil -> false
     TmIsEmp( TmCons( TmNum(1),TmNil ) ),TmBool(false);
+
+    // isEmpty 1 -> isEmpty 1 (NoRuleApplies)
+    TmIsEmp( TmNum(1) ),TmIsEmp( TmNum(1) );
 
     // hd nil -> nil
     TmHd( TmNil ), TmNil;

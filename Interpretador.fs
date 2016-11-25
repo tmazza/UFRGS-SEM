@@ -31,14 +31,14 @@ module Gramatica =
     | TmLet of string * term * term     // let x = e1 in e2
     | TmLetRec of string * term * term  // let rec f:T1->T2 = e1 in e2
     (* Listas *)
-    | TmNil                             // [] | TODO: regras de substituioção
-    | TmCons of term * term             // e1::e2 | TODO: regras de substituioção
-    | TmIsEmp of term                   // isempty e1 | TODO: regras de substituioção
-    | TmHd of term                      // hd e1 | TODO: regras de substituioção
-    | TmTl of term                      // tl e1 | TODO: regras de substituioção
+    | TmNil                             // []
+    | TmCons of term * term             // e1::e2
+    | TmIsEmp of term                   // isempty e1
+    | TmHd of term                      // hd e1
+    | TmTl of term                      // tl e1
     (* Exceções *)
-    | TmRaise                           // raise | TODO: regras de substituioção
-    | TmTry of term * term              // try e1 with e2 | TODO: regras de substituioção
+    | TmRaise                           // raise
+    | TmTry of term * term              // try e1 with e2
 
   (* Excecao a ser ativada quando termo for uma FORMA NORMAL *)
   exception NoRuleApplies
@@ -72,19 +72,38 @@ module Avaliador =
     | TmBool(b) -> b
     | _         -> false
 
-  // { v/x } e
+  // Substitui ocorrências de x por v em e | { v/x } e
   let rec subFree v x e =
     match e with 
-    | TmIf( e1,e2,e3 ) -> TmIf(subFree v x e1,subFree v x e2,subFree v x e3)
+    (* Op *)
     | TmOp( e1,e2,op ) -> TmOp(subFree v x e1,subFree v x e2, op)
+    
+    (* If *)
+    | TmIf( e1,e2,e3 ) -> TmIf(subFree v x e1,subFree v x e2,subFree v x e3)
+    
+    (* App *)
     | TmApp( e1,e2 ) -> TmApp(subFree v x e1,subFree v x e2)
+    
+    (* Func *)
     | TmFunc( y,e1 ) when not(x = (TmIdent y)) -> TmFunc( y,subFree v x e1)
+    
+    (* Let *)
     | TmLet( y,e1,e2 ) when x = (TmIdent y) 
-        -> TmLet( y,subFree v x e1, e2)
+        -> TmLet( y,subFree v x e1, e2)    
     | TmLet( y,e1,e2 ) when not(x = (TmIdent y)) 
         -> TmLet( y,subFree v x e1, subFree v x e2)
+    
+    (* Let rec *)
     | TmLetRec( f, TmFunc( y, e1), e2) when not(x = TmIdent f) 
         -> TmLetRec( f, subFree v x (TmFunc( y, e1)), subFree v x e2)
+    
+    (* try-with *)
+    | TmTry( e1,e2 ) -> TmTry( subFree v x e1,subFree v x e2 )
+    
+    (* Listas *)
+    | TmIsEmp( e1 ) -> TmIsEmp( subFree v x e1 )
+    | TmHd( e1 ) -> TmHd( subFree v x e1 )
+    | TmTl( e1 ) -> TmTl( subFree v x e1 )
     | _ -> if x = e then v else e
 
   (* Implementacao da funcao STEP de avaliacao em um passo *)
@@ -146,9 +165,9 @@ module Avaliador =
       | TmTry( e1,e2 ) ->
           let e1' = step e1 in TmTry( e1',e2 )
 
-      (* Listar *)
+      (* Listas *)
       | TmIsEmp( TmNil ) -> TmBool(true)
-      | TmIsEmp( e1 ) -> TmBool(false)
+      | TmIsEmp( e1 ) -> TmBool(false) // TODO: testar se a expressão é TmCons
       | TmHd( TmNil ) -> TmNil
       | TmHd( TmCons( e1,e2 ) ) -> e1
       | TmTl( TmNil ) -> TmNil
@@ -248,7 +267,8 @@ module Testes =
     // let rec simple = fn x => x in simple(1)
     TmLetRec("simple", TmFunc( "x", TmIdent("x") ),TmApp(TmIdent("simple"),TmNum(1))),TmNum(1);
 
-    // let rec fat = fn x => if x=0 then 1 else x * fat(x-1) in fat(5) // fatorial
+    // fatorial n
+    // let rec fat = fn x => if x=0 then 1 else x * fat(x-1) in fat(5)
     TmLetRec("fat", TmFunc( "x", TmIf(
                                 TmOp( TmIdent("x"),TmNum(0),OpIg ),
                                 TmNum(1),
@@ -395,6 +415,7 @@ module Testes =
               TmLetRec("f", TmFunc( "x", TmIdent("x") ),TmApp(TmIdent("f"),TmNum(1)))
     ), TmNum(2)),TmNum(1);
 
+    // fatorial n-1
     (** Teste: {e/x}(let rec f:T->T=(fn y:T => e1) in e2 -> (let rec f:T->T={e/x}(fn y:T => e1) in {e/x}e2 
     let rec fat = fn y => if y-x=0 then 1 else y * fat(y-1) in fat(6-x) **) // aplica substituição quado x != f
     TmApp( TmFunc("x", 

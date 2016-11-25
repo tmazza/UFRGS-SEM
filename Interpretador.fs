@@ -129,6 +129,7 @@ module Avaliador =
           let e1' = step e1 in TmApp( e1',e2 )
       
       (* Let *)
+      | TmLet( x,TmRaise,e2 ) -> TmRaise
       | TmLet( x,e1,e2 ) when isValue e1 -> subFree e1 (TmIdent x) e2
       | TmLet( x,e1,TmRaise ) -> TmRaise
       | TmLet( x,e1,e2 ) ->
@@ -277,7 +278,7 @@ module Testes =
     TmLet("x",TmNum(1), TmRaise),TmRaise;
     
     // (let x = raise in 1) -> raise // x não ocorre em e1
-    TmLet("x",TmRaise, TmNum(1)),TmNum(1);
+    TmLet("x",TmRaise, TmNum(1)),TmRaise;
 
     // (let x = raise in x) -> raise // x ocorre em e1
     TmLet("x",TmRaise, TmIdent("x")),TmRaise;

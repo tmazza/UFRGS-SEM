@@ -445,3 +445,7 @@ module Testes =
 
   let r = prettyPrint (evalList testes)
   printf "\n\n"
+
+  open System
+
+  Console.ReadKey() |> ignore
